@@ -2,7 +2,7 @@
 
 Machine learning application that estimates the probability of customer churn for Interconnect, a telecommunications provider, using contract, billing and service information.
 
-Live Demo: [Streamlit App](STREAMLIT_URL)
+Live Demo: https://telecom-customer-churn-prediction-orrfcukqmuvaby9bncptny.streamlit.app/
 
 ## Overview
 
@@ -247,18 +247,11 @@ This reloads `data/final_provider/*.csv`, rebuilds the features, re-trains the L
 - Streamlit
 - Joblib (model serialization)
 
-## Deploying to Streamlit Community Cloud
-
-1. Push this repository to GitHub (including `models/churn_model.pkl`).
-2. On [share.streamlit.io](https://share.streamlit.io), create a new app pointing at this repository, branch `main`, and main file `app.py`.
-3. Streamlit Cloud installs `requirements.txt` automatically and runs `streamlit run app.py`.
-4. Once deployed, replace `STREAMLIT_URL` at the top of this README with the live app URL.
-
 ## Author
 
 **Alejandro Cotes**
 
 Data Science student focused on Python, SQL, Machine Learning and Data Analytics.
 
-- LinkedIn: [Add LinkedIn URL]
-- GitHub: [Add GitHub URL]
+- LinkedIn: https://www.linkedin.com/in/alejandro-cotes-fornaris/
+- GitHub: https://github.com/AC020907
