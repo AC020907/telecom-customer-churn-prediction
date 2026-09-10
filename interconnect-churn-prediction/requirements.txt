@@ -1,0 +1,14 @@
+pandas==3.0.2
+numpy==2.4.4
+scipy==1.17.1
+scikit-learn==1.8.0
+lightgbm==4.7.0
+joblib==1.5.3
+streamlit==1.63.0
+matplotlib==3.10.9
+seaborn==0.13.2
+
+# Only needed to fully re-run notebooks/interconnect_churn_analysis.ipynb
+# (model comparison section). Not required by app.py, src/train.py or
+# src/predict.py, since the final model is LightGBM.
+catboost==1.2.10
