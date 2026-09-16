@@ -675,3 +675,7 @@ Data Science student focused on Python, SQL, Machine Learning and Data Analytics
 
 - [LinkedIn](https://www.linkedin.com/in/alejandro-cotes-fornaris/)
 - [GitHub](https://github.com/AC020907)
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
