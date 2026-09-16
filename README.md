@@ -1,91 +1,234 @@
 # Interconnect Customer Churn Prediction
 
-Machine learning application that estimates the probability of customer churn for Interconnect, a telecommunications provider, using contract, billing and service information.
+End-to-end Machine Learning project for predicting customer churn in a telecommunications company using contract, billing, personal and service information.
 
-Live Demo: https://telecom-customer-churn-prediction-orrfcukqmuvaby9bncptny.streamlit.app/
+The project covers data integration, exploratory analysis, statistical validation, leakage-aware feature engineering, model comparison, hyperparameter tuning, final evaluation and deployment through Streamlit.
 
-## Overview
+**Tech stack:** Python · Pandas · NumPy · Scikit-learn · LightGBM · CatBoost · SciPy · Matplotlib · Seaborn · Streamlit · Joblib
 
-Interconnect wants to proactively identify customers who are likely to cancel their service ("churn") so that the retention team can offer targeted promotions and personalized plans before those customers leave. This project turns that business need into an end-to-end machine learning pipeline: data integration, exploratory analysis, feature engineering, model comparison, hyperparameter tuning, and a Streamlit application that scores a customer's churn risk in real time.
+**Final model:** LightGBM (`LGBMClassifier`)  
+**Final test ROC-AUC:** **0.9453**  
+**Deployment:** Streamlit application
+
+[Open the live Streamlit application](https://telecom-customer-churn-prediction-orrfcukqmuvaby9bncptny.streamlit.app/)
 
 ## Business Problem
 
-Acquiring a new customer is significantly more expensive than retaining an existing one. Without a way to flag at-risk customers, retention efforts are reactive (after cancellation) or untargeted (broad, costly promotions). A churn-risk model lets Interconnect focus retention offers on the customers who most need them, improving retention ROI.
+Interconnect wants to proactively identify customers who are likely to cancel their service so that the retention team can target promotions and personalized plans before those customers leave.
+
+Without a churn-risk model, retention efforts are reactive or untargeted. A predictive model allows the business to prioritize customers with higher estimated churn risk and use retention resources more efficiently.
 
 ## Objective
 
-Predict the probability that a given customer will churn, using information available about their contract, billing history, personal profile and subscribed services - without using any information that would not be available at prediction time (see [Feature Engineering](#feature-engineering) below).
+Predict the probability that a given customer will churn using information available about:
 
-## Dataset
+- contract characteristics;
+- billing history;
+- personal profile;
+- internet services;
+- phone services;
+- subscribed add-ons.
 
-The data comes from four sources, joined on `customerID`:
-
-| File | Description |
-|---|---|
-| `contract.csv` | Contract type, billing method, monthly/total charges, contract start/end dates |
-| `personal.csv` | Gender, senior citizen status, partner and dependents |
-| `internet.csv` | Internet service type and add-ons (security, backup, device protection, tech support, streaming) |
-| `phone.csv` | Phone service (multiple lines) |
-
-`contract.csv` contains every customer and is used as the base table; `personal.csv`, `internet.csv` and `phone.csv` are joined onto it with a left join. Customers absent from `internet.csv` or `phone.csv` simply do not have that service, so the corresponding missing values are filled with explicit categories (`"No internet service"`, `"No phone service"`) rather than dropped.
+The model is designed to avoid using information that would not be available at prediction time.
 
 ## Project Workflow
 
-1. **Data integration** - merge the four sources on `customerID`.
-2. **Data cleaning** - fix data types (`TotalCharges` to numeric, `BeginDate`/`EndDate` to datetime), fill service-related missing values, build the `Churn` target.
-3. **Exploratory Data Analysis** - univariate and bivariate analysis of every feature against churn.
-4. **Statistical analysis** - hypothesis testing to confirm which differences are statistically significant.
-5. **Feature engineering** - build model-ready features while explicitly avoiding data leakage.
-6. **Model comparison** - train and compare six algorithms using stratified cross-validation.
-7. **Hyperparameter tuning** - `RandomizedSearchCV` optimized directly for ROC-AUC.
-8. **Model evaluation** - final, single evaluation on a held-out test set.
-9. **Streamlit deployment** - an interactive app that loads the trained pipeline and scores new customers.
+1. **Data integration** — merge the four raw data sources on `customerID`.
+2. **Data cleaning** — correct data types, handle service-related missing values and construct the binary churn target.
+3. **Exploratory Data Analysis** — analyze feature distributions and churn patterns.
+4. **Statistical analysis** — test whether observed differences and associations are statistically significant.
+5. **Feature engineering** — create model-ready features while explicitly preventing target leakage.
+6. **Model comparison** — compare six machine-learning algorithms plus a Dummy Classifier baseline.
+7. **Hyperparameter tuning** — optimize selected models using `RandomizedSearchCV` with ROC-AUC as the scoring metric.
+8. **Model evaluation** — perform a final single evaluation on an untouched test set.
+9. **Deployment** — serve the trained model through an interactive Streamlit application.
+
+## Dataset
+
+The data comes from four sources joined on `customerID`:
+
+| File | Description |
+|---|---|
+| `contract.csv` | Contract type, billing method, monthly/total charges and contract dates |
+| `personal.csv` | Gender, senior citizen status, partner and dependents |
+| `internet.csv` | Internet service type and internet-related add-ons |
+| `phone.csv` | Phone service and multiple-line information |
+
+`contract.csv` contains every customer and is used as the base table.
+
+The remaining tables are merged using left joins. Customers absent from `internet.csv` or `phone.csv` are interpreted as customers without those services rather than as missing observations.
+
+Service-related missing values are therefore replaced with explicit categories such as:
+
+```text
+No internet service
+No phone service
+```
 
 ## Exploratory Data Analysis
 
-- The dataset contains 7,043 customers with no duplicate rows or duplicate `customerID`s.
-- The target is moderately imbalanced: **73.5% active customers vs. 26.5% churned customers**, which motivated a stratified train/validation/test split.
-- `TotalCharges` was stored as text and contained 11 blank values, all belonging to customers whose contract started on the dataset's reference date (2020-02-01) - i.e. customers too new to have accumulated any charges yet. These were converted to numeric and filled with `0`.
-- No numeric feature (`MonthlyCharges`, `TotalCharges`, tenure, number of services) showed IQR-based outliers worth removing.
-- Churned customers tend to have **higher monthly charges**, **lower total accumulated charges** (consistent with shorter tenure), **shorter tenure**, and **fewer contracted services** than customers who stay.
-- Categorical variables most associated with churn (by inspection of churn rate per category) include contract type, internet service type, online security, tech support and payment method.
+The final dataset contains **7,043 customers** with:
+
+- no duplicate rows;
+- no duplicated `customerID` values;
+- a moderately imbalanced target;
+- **73.5% active customers**;
+- **26.5% churned customers**.
+
+Because the target is imbalanced, stratified splitting is used during model development.
+
+### Data quality findings
+
+`TotalCharges` was originally stored as text and contained **11 blank values**.
+
+Those blank values correspond to customers whose contracts began on the dataset reference date, `2020-02-01`, meaning they were too new to have accumulated charges.
+
+The values were therefore:
+
+1. converted to numeric;
+2. filled with `0`.
+
+No IQR-based outliers in the main numeric variables were considered significant enough to justify removing observations.
+
+### Main exploratory patterns
+
+Compared with active customers, churned customers tend to show:
+
+- higher monthly charges;
+- lower accumulated total charges;
+- shorter customer tenure;
+- fewer contracted services.
+
+Categorical variables showing notable differences in churn rate include:
+
+- contract type;
+- internet service;
+- online security;
+- technical support;
+- payment method.
 
 ## Statistical Analysis
 
-- **Mann-Whitney U test** (numeric features vs. churn): all four numeric features tested (`MonthlyCharges`, `TotalCharges`, tenure, number of services) showed a statistically significant difference between churned and active customers (p < 0.0001 in every case).
-- **Chi-square test of independence** (categorical features vs. churn): every categorical feature tested was significantly associated with churn (p < 0.05) **except `gender`** (p ≈ 0.49, not significant).
-- **Cramér's V** (association strength): `Type` (contract type) showed the strongest association with churn (V = 0.410), followed by `OnlineSecurity` (0.347), `TechSupport` (0.343), `InternetService` (0.322) and `PaymentMethod` (0.303). `gender` had a Cramér's V of 0.008, confirming it carries essentially no association with churn.
+Statistical tests were used to determine whether the patterns observed during EDA were statistically supported.
+
+### Numeric variables
+
+A **Mann-Whitney U test** was applied to the numeric features analyzed against churn.
+
+The following variables showed statistically significant differences between churned and active customers:
+
+- `MonthlyCharges`
+- `TotalCharges`
+- tenure
+- number of services
+
+All reported tests produced:
+
+```text
+p < 0.0001
+```
+
+### Categorical variables
+
+A **Chi-square test of independence** was applied to categorical variables against churn.
+
+All tested categorical variables showed a statistically significant association with churn at:
+
+```text
+p < 0.05
+```
+
+except:
+
+```text
+gender
+```
+
+with approximately:
+
+```text
+p ≈ 0.49
+```
+
+### Cramér's V
+
+Cramér's V was used to quantify association strength.
+
+The strongest associations found were:
+
+| Variable | Cramér's V |
+|---|---:|
+| Contract type (`Type`) | 0.410 |
+| `OnlineSecurity` | 0.347 |
+| `TechSupport` | 0.343 |
+| `InternetService` | 0.322 |
+| `PaymentMethod` | 0.303 |
+| `gender` | 0.008 |
+
+The very low value for `gender` is consistent with the non-significant Chi-square result.
 
 ## Feature Engineering
 
-Two columns directly encode the outcome and were **excluded** from training to avoid data leakage:
+Feature engineering was performed with explicit attention to **target leakage**.
 
-- `EndDate` / `EndDateDate` - the cancellation date itself.
-- `TenureMonths` (created during EDA) - for churned customers, this was computed using `EndDateDate`, so it indirectly leaks the target and was **not** used in the final model.
-- `customerID` was also dropped - it is a unique identifier with no predictive value.
+### Leakage prevention
 
-Instead, temporal information was derived exclusively from `BeginDate` (the contract start date, which is known independently of the outcome) relative to the dataset's reference date, `2020-02-01`:
+The following variables were excluded from model training:
+
+- `customerID` — unique identifier with no predictive meaning;
+- `EndDate` — directly reveals whether a customer cancelled;
+- `EndDateDate` — datetime representation of the cancellation date;
+- `TenureMonths` — the exploratory version used the cancellation date for churned customers and therefore indirectly leaked the target.
+
+Instead of using the leakage-prone tenure feature, the model uses temporal information derived only from `BeginDate`.
+
+### Fixed reference date
+
+The historical dataset represents a snapshot as of:
+
+```text
+2020-02-01
+```
+
+The model therefore uses the same fixed reference date during both training and inference.
+
+This prevents a mismatch between the temporal feature distributions used during training and those used during prediction.
+
+The deployed application should therefore be interpreted as answering:
+
+> What would this customer's churn risk have been as of the dataset snapshot date?
+
+A real production system would periodically retrain the model on newer data and advance the reference date accordingly.
+
+### Engineered features
 
 | Feature | Description |
 |---|---|
-| `CustomerAgeMonths` | Months elapsed between `BeginDate` and the reference date |
-| `BeginYear` | Year the contract started |
-| `BeginMonth` | Month the contract started |
-| `IsMonthToMonth` | 1 if the contract type is "Month-to-month" |
-| `AutomaticPayment` | 1 if the payment method is an automatic bank transfer or credit card |
-| `SecuritySupportCount` | Count of `OnlineSecurity` + `TechSupport` set to "Yes" |
-| `NumServices` | Count of add-on services (security, backup, device protection, tech support, streaming TV/movies, multiple lines) set to "Yes" |
-| `HasInternet` / `HasPhone` | Whether the customer has any internet / phone service |
+| `CustomerAgeMonths` | Months between `BeginDate` and the reference date |
+| `BeginYear` | Contract starting year |
+| `BeginMonth` | Contract starting month |
+| `IsMonthToMonth` | 1 if the contract is month-to-month |
+| `AutomaticPayment` | 1 for automatic bank transfer or credit card payment |
+| `SecuritySupportCount` | Count of `OnlineSecurity` and `TechSupport` equal to `"Yes"` |
+| `NumServices` | Count of active add-on services |
+| `HasInternet` | Whether the customer has internet service |
+| `HasPhone` | Whether the customer has phone service |
 
-The final model uses 12 numeric and 14 categorical features (26 total). Categorical features are one-hot encoded; numeric features pass through unscaled, since the winning model is tree-based.
+The final model uses:
 
-> **Reference date note:** the dataset represents a historical snapshot, and `CustomerAgeMonths` (plus `BeginYear`/`BeginMonth`) is computed relative to that snapshot's reference date, `2020-02-01`. The application uses the same fixed reference date at inference time - not the current date - so that every prediction stays consistent with the temporal context the model was trained and evaluated on, avoiding a distribution shift between training and serving. This is a deliberate decision to guarantee reproducibility for this portfolio project, not a limitation to work around; a real production deployment would retrain the model periodically on recent data and advance the reference date accordingly. See `src/feature_engineering.py` for the implementation.
+- **12 numeric features**
+- **14 categorical features**
+- **26 total input features**
+
+Categorical variables are encoded using one-hot encoding.
+
+Numeric variables are passed through without scaling because the selected final model is tree-based.
 
 ## Machine Learning Models
 
 Seven models were evaluated:
 
-1. Dummy Classifier (`most_frequent`, sanity-check baseline)
+1. Dummy Classifier
 2. Logistic Regression
 3. Random Forest
 4. Extra Trees
@@ -93,14 +236,24 @@ Seven models were evaluated:
 6. CatBoost
 7. LightGBM
 
-All models beyond the baseline were compared using 5-fold stratified cross-validation with **ROC-AUC** as the optimization metric, since ROC-AUC was the project's official evaluation criterion. `RandomizedSearchCV` (`scoring="roc_auc"`) was used to tune Gradient Boosting, Extra Trees, Random Forest, CatBoost and LightGBM.
+The Dummy Classifier uses the `most_frequent` strategy and serves as a sanity-check baseline.
+
+The six machine-learning models were compared using stratified validation, while selected models were tuned with `RandomizedSearchCV`.
+
+The main optimization metric was:
+
+```text
+ROC-AUC
+```
+
+because ROC-AUC was the primary evaluation criterion for the project.
 
 ## Model Selection
 
-Cross-validated / validation-set ROC-AUC after hyperparameter tuning:
+Validation-set performance after hyperparameter tuning:
 
 | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
-|---|---|---|---|---|---|
+|---|---:|---:|---:|---:|---:|
 | **LightGBM** | 0.9056 | 0.8754 | 0.7513 | 0.8086 | **0.9327** |
 | Gradient Boosting | 0.8957 | 0.8471 | 0.7406 | 0.7903 | 0.9307 |
 | CatBoost | 0.8815 | 0.8416 | 0.6818 | 0.7533 | 0.9223 |
@@ -108,23 +261,37 @@ Cross-validated / validation-set ROC-AUC after hyperparameter tuning:
 | Extra Trees | 0.8467 | 0.7548 | 0.6257 | 0.6842 | 0.8806 |
 | Dummy Classifier | 0.7346 | 0.0000 | 0.0000 | 0.0000 | 0.5000 |
 
-**LightGBM** was selected as the final model because it achieved the highest ROC-AUC on the validation set.
+**LightGBM** was selected as the final model because it achieved the highest validation ROC-AUC.
 
 ## Final Performance
 
-After selecting LightGBM and its hyperparameters, the model was re-trained on the combined training + validation data and evaluated once on the untouched test set:
+After model selection, LightGBM was re-trained using the combined training and validation sets.
+
+The final model was then evaluated once on the untouched test set.
 
 | Metric | Value |
-|---|---|
+|---|---:|
 | **ROC-AUC** | **0.9453** |
 | Accuracy | 0.9099 |
 | Precision | 0.9023 |
 | Recall | 0.7406 |
 | F1-score | 0.8135 |
 
-An ROC-AUC of 0.9453 indicates a very strong ability to rank customers by churn risk. The close agreement between validation (0.9327) and test (0.9453) ROC-AUC indicates the model generalizes well and shows no evident overfitting.
+The validation ROC-AUC was approximately:
 
-### Final LightGBM hyperparameters
+```text
+0.9327
+```
+
+and the final test ROC-AUC was approximately:
+
+```text
+0.9453
+```
+
+The similar validation and test performance suggests stable out-of-sample behavior without a large validation-to-test degradation.
+
+## Final LightGBM Configuration
 
 ```python
 LGBMClassifier(
@@ -142,39 +309,151 @@ LGBMClassifier(
 )
 ```
 
-No explicit decision-threshold optimization was performed in the original analysis, since ROC-AUC is threshold-independent and was the project's primary metric. The application and `src/predict.py` therefore use the standard **0.5** probability threshold to turn a predicted probability into a High/Low risk label; this is documented explicitly rather than presented as an optimized value.
+## Decision Threshold
 
-## Key Drivers
+No explicit decision-threshold optimization was performed.
 
-By LightGBM's native split-based feature importance (the number of times each feature is used to split a tree - `LGBMClassifier`'s default `importance_type="split"`, not a gain-based or SHAP importance), the most influential features are:
+The main optimization metric was ROC-AUC, which is threshold-independent.
 
-1. **TotalCharges** - cumulative amount billed to the customer.
-2. **CustomerAgeMonths** - how long the customer has been with Interconnect.
-3. **MonthlyCharges** - the customer's current monthly bill.
+The deployed model therefore uses the standard probability threshold:
 
-Contract-timing features (`BeginMonth`), service usage (`NumServices`, `SecuritySupportCount`), internet service type, payment method and streaming add-ons also contribute meaningfully. These importances describe what the model relies on to make predictions, not causal relationships.
+```text
+0.5
+```
+
+to convert the predicted churn probability into:
+
+```text
+High Churn Risk
+Low Churn Risk
+```
+
+This threshold should not be interpreted as an optimized business decision rule.
+
+In a production environment, the threshold could instead be selected based on:
+
+- retention campaign cost;
+- customer lifetime value;
+- intervention budget;
+- false-positive cost;
+- false-negative cost.
+
+## Key Model Drivers
+
+The project uses LightGBM's native **split-based feature importance**.
+
+This represents the number of times a feature is used to split a tree.
+
+It is:
+
+- not SHAP importance;
+- not permutation importance;
+- not gain-based importance;
+- not a causal interpretation.
+
+The three most frequently used features are:
+
+1. **TotalCharges**
+2. **CustomerAgeMonths**
+3. **MonthlyCharges**
+
+Other relevant features include:
+
+- `BeginMonth`
+- `NumServices`
+- `SecuritySupportCount`
+- Fiber optic internet service
+- Multiple lines
+- Payment method
+- Online backup
+- Streaming services
+- Contract type
+
+These importances describe which variables the model relies on for prediction, not causal effects on churn.
 
 ## Streamlit Application
 
-The app (`app.py`) lets a user enter a customer's contract, billing, personal and service information and returns:
+The project includes an interactive application implemented in:
 
-- an estimated **churn probability**;
-- a **High Churn Risk** / **Low Churn Risk** classification (0.5 threshold);
-- a short business interpretation of the result;
-- an "About the Model" section with the algorithm, metric and real test performance;
-- a "Model Insights" section showing the model's top features.
+```text
+app.py
+```
 
-Only variables that cannot be derived automatically are asked of the user; engineered features (tenure, contract-timing, service counts, etc.) are computed internally from the raw inputs, using the exact same logic as training (`src/feature_engineering.py`).
+The application allows users to enter customer information related to:
+
+- contract;
+- billing;
+- personal characteristics;
+- internet service;
+- phone service;
+- service add-ons.
+
+The application returns:
+
+- estimated churn probability;
+- High / Low churn-risk classification;
+- short business interpretation;
+- model performance information;
+- feature-importance visualization.
+
+Only inputs that cannot be derived automatically are requested from the user.
+
+Engineered features such as:
+
+- `CustomerAgeMonths`
+- `BeginYear`
+- `BeginMonth`
+- `NumServices`
+- `HasInternet`
+- `HasPhone`
+- `IsMonthToMonth`
+- `AutomaticPayment`
+- `SecuritySupportCount`
+
+are generated internally using the same functions used during training.
+
+### Live application
+
+[Open the Streamlit application](https://telecom-customer-churn-prediction-orrfcukqmuvaby9bncptny.streamlit.app/)
+
+## Training / Inference Consistency
+
+The project separates data preparation, feature engineering, training and inference into reusable modules.
+
+```text
+Raw CSV files
+   ↓
+src/data_processing.py
+   ↓
+Clean merged dataset
+   ↓
+src/feature_engineering.py
+   ↓
+Model-ready features
+   ↓
+src/train.py
+   ↓
+Trained LightGBM pipeline
+   ↓
+models/churn_model.pkl
+   ↓
+src/predict.py
+   ↓
+app.py
+```
+
+The same feature-engineering logic is reused during both training and inference.
+
+This reduces training-serving skew and helps ensure that the deployed model receives features in the same form as the model used during development.
 
 ## Repository Structure
 
 ```text
-interconnect-churn-prediction/
+telecom-customer-churn-prediction/
 │
-├── app.py
 ├── README.md
+├── app.py
 ├── requirements.txt
-├── .gitignore
 │
 ├── data/
 │   └── final_provider/
@@ -198,54 +477,195 @@ interconnect-churn-prediction/
     └── predict.py
 ```
 
+## Source Code Responsibilities
+
+### `src/data_processing.py`
+
+Handles:
+
+- raw CSV loading;
+- table merging;
+- data-type corrections;
+- churn target construction;
+- service-related missing-value handling;
+- basic service-usage features.
+
+### `src/feature_engineering.py`
+
+Handles:
+
+- leakage prevention;
+- fixed reference date;
+- temporal features;
+- contract-derived features;
+- feature selection;
+- categorical preprocessing;
+- model feature ordering.
+
+### `src/train.py`
+
+Handles:
+
+- reproducible train / validation / test splits;
+- pipeline construction;
+- final LightGBM training;
+- validation and test evaluation;
+- feature-importance extraction;
+- model serialization;
+- metadata generation.
+
+### `src/predict.py`
+
+Handles:
+
+- model loading;
+- input validation;
+- inference feature construction;
+- churn-probability prediction;
+- probability-to-class conversion.
+
+### `app.py`
+
+Provides the Streamlit interface used to score customers interactively.
+
 ## Installation
 
-```bash
-git clone <YOUR_REPO_URL>
-cd interconnect-churn-prediction
+Clone the repository:
 
+```bash
+git clone https://github.com/AC020907/telecom-customer-churn-prediction.git
+cd telecom-customer-churn-prediction
+```
+
+Create a virtual environment:
+
+```bash
 python -m venv .venv
 ```
 
-Windows:
+### Windows
 
 ```bash
 .venv\Scripts\activate
 ```
 
-Linux/macOS:
+### Linux / macOS
 
 ```bash
 source .venv/bin/activate
 ```
 
-Then:
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
+```
+
+Run the application:
+
+```bash
 streamlit run app.py
 ```
 
-The repository already ships a trained model (`models/churn_model.pkl`), so `streamlit run app.py` works immediately after installing dependencies - no training step required.
+The repository already includes a trained model:
 
-### Reproducing the model from scratch
+```text
+models/churn_model.pkl
+```
+
+Therefore, the Streamlit application can be executed immediately after installing the dependencies.
+
+## Reproduce the Model From Scratch
+
+Run:
 
 ```bash
 python -m src.train
 ```
 
-This reloads `data/final_provider/*.csv`, rebuilds the features, re-trains the LightGBM pipeline with the notebook's best hyperparameters, evaluates it on the test set, and overwrites `models/churn_model.pkl` and `models/model_metadata.json`.
+The training script:
+
+1. loads the four raw datasets from `data/final_provider/`;
+2. reproduces the project's cleaning logic;
+3. rebuilds the engineered features;
+4. creates the same stratified train / validation / test split;
+5. trains the final LightGBM pipeline using the best hyperparameters identified during tuning;
+6. evaluates validation performance;
+7. re-trains the final model using training + validation data;
+8. performs a single evaluation on the untouched test set;
+9. saves the trained model and metadata.
+
+The following files are generated or overwritten:
+
+```text
+models/churn_model.pkl
+models/model_metadata.json
+```
+
+## Model Artifacts
+
+### Trained pipeline
+
+```text
+models/churn_model.pkl
+```
+
+Contains the complete Scikit-learn pipeline:
+
+```text
+ColumnTransformer
+   ↓
+OneHotEncoder / numeric passthrough
+   ↓
+LightGBM classifier
+```
+
+### Model metadata
+
+```text
+models/model_metadata.json
+```
+
+Stores:
+
+- final model name;
+- hyperparameters;
+- numeric features;
+- categorical features;
+- decision threshold;
+- validation metrics;
+- test metrics;
+- feature importance;
+- random state.
 
 ## Technologies
 
 - Python
-- Pandas / NumPy
+- Pandas
+- NumPy
 - Scikit-learn
 - LightGBM
-- SciPy (statistical tests)
-- Matplotlib / Seaborn (EDA visualizations)
+- CatBoost
+- SciPy
+- Matplotlib
+- Seaborn
 - Streamlit
-- Joblib (model serialization)
+- Joblib
+- Jupyter Notebook
+
+## Main Results
+
+- **Customers analyzed:** 7,043
+- **Churn rate:** 26.5%
+- **Selected model:** LightGBM
+- **Validation ROC-AUC:** 0.9327
+- **Test ROC-AUC:** 0.9453
+- **Test accuracy:** 0.9099
+- **Test precision:** 0.9023
+- **Test recall:** 0.7406
+- **Test F1-score:** 0.8135
+- **Decision threshold:** 0.5
+- **Deployment:** Streamlit
 
 ## Author
 
@@ -253,5 +673,5 @@ This reloads `data/final_provider/*.csv`, rebuilds the features, re-trains the L
 
 Data Science student focused on Python, SQL, Machine Learning and Data Analytics.
 
-- LinkedIn: https://www.linkedin.com/in/alejandro-cotes-fornaris/
-- GitHub: https://github.com/AC020907
+- [LinkedIn](https://www.linkedin.com/in/alejandro-cotes-fornaris/)
+- [GitHub](https://github.com/AC020907)
